@@ -12,10 +12,27 @@ function extractMathText(node) {
             return ` ${num}/${den} `;
         }
     }
+    
     let text = '';
-    for (let child of node.childNodes) {
-        text += extractMathText(child);
+    const children = node.childNodes;
+    for (let i = 0; i < children.length; i++) {
+        let child = children[i];
+        let nextChild = children[i+1];
+        
+        if (nextChild && nextChild.nodeType === Node.ELEMENT_NODE && nextChild.classList.contains('msupsub')) {
+            let base = extractMathText(child);
+            let script = extractMathText(nextChild);
+            text += `${base}^${script}`;
+            i++; // skip the msupsub node as it's processed
+        } else {
+            text += extractMathText(child);
+        }
     }
+
+    if (node.classList.contains('sqrt')) {
+        return `√(${text})`;
+    }
+
     return text;
 }
 
@@ -31,7 +48,7 @@ function buildMathML(node) {
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
     const cl = node.classList;
-    if (cl.contains('strut') || cl.contains('pstrut') || cl.contains('frac-line') || cl.contains('mspace') || cl.contains('vlist-s')) {
+    if (cl.contains('strut') || cl.contains('pstrut') || cl.contains('frac-line') || cl.contains('mspace') || cl.contains('vlist-s') || cl.contains('hide-tail')) {
         return '';
     }
 
@@ -45,10 +62,27 @@ function buildMathML(node) {
             return `<mfrac><mrow>${num}</mrow><mrow>${den}</mrow></mfrac>`;
         }
     }
+    
     let inner = '';
-    for (let child of node.childNodes) {
-        inner += buildMathML(child);
+    const children = node.childNodes;
+    for (let i = 0; i < children.length; i++) {
+        let child = children[i];
+        let nextChild = children[i+1];
+        
+        if (nextChild && nextChild.nodeType === Node.ELEMENT_NODE && nextChild.classList.contains('msupsub')) {
+            let baseMath = buildMathML(child);
+            let scriptMath = buildMathML(nextChild);
+            inner += `<msup><mrow>${baseMath}</mrow><mrow>${scriptMath}</mrow></msup>`;
+            i++; // skip the msupsub node
+        } else {
+            inner += buildMathML(child);
+        }
     }
+
+    if (cl.contains('sqrt')) {
+        return `<msqrt><mrow>${inner}</mrow></msqrt>`;
+    }
+
     return inner;
 }
 
