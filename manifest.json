@@ -1,12 +1,32 @@
 {
   "manifest_version": 3,
-  "name": "NotebookLM Copy Interceptor",
+  "name": "Gemini Notebook Copy Interceptor",
   "version": "1.0",
-  "description": "Intercepts copy on NotebookLM to preserve math equation HTML.",
+  "description": "Intercepts copy on configured domains to preserve math equation HTML.",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "content_scripts": [
     {
-      "matches": ["*://notebooklm.google.com/*"],
-      "js": ["content.js"]
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content.js"
+      ]
     }
   ]
 }

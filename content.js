@@ -1,3 +1,18 @@
+let isEnabled = true;
+let activeDomains = ['notebooklm.google.com'];
+
+chrome.storage.sync.get({ enabled: true, domains: ['notebooklm.google.com'] }, (data) => {
+    isEnabled = data.enabled;
+    activeDomains = data.domains;
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'sync') {
+        if (changes.enabled) isEnabled = changes.enabled.newValue;
+        if (changes.domains) activeDomains = changes.domains.newValue;
+    }
+});
+
 function extractMathText(node) {
     if (node.nodeType === Node.TEXT_NODE) return node.textContent;
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
@@ -87,6 +102,11 @@ function buildMathML(node) {
 }
 
 document.addEventListener('copy', function(event) {
+    if (!isEnabled) return;
+    const currentDomain = window.location.hostname;
+    const isDomainActive = activeDomains.some(d => currentDomain.includes(d));
+    if (!isDomainActive) return;
+
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
 

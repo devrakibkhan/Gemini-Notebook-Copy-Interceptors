@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Settings</title>
+  <link rel="stylesheet" href="popup.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Copy Interceptor</h2>
+    </div>
+    
+    <div class="setting-row">
+      <span class="label">Enable Interceptor</span>
+      <label class="switch">
+        <input type="checkbox" id="enableToggle" checked>
+        <span class="slider round"></span>
+      </label>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-title">Active Domains</div>
+    <ul id="domainList" class="domain-list">
+      <!-- Domain items will be injected here -->
+    </ul>
+
+    <form id="addDomainForm" class="add-domain-form">
+      <input type="text" id="newDomainInput" placeholder="Add site (e.g. chatgpt.com)" required>
+      <button type="submit" class="add-btn">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Add
+      </button>
+    </form>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
