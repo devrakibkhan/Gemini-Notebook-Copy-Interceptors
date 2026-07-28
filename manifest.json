@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "NotebookLM Copy Interceptor",
+  "version": "1.0",
+  "description": "Intercepts copy on NotebookLM to preserve math equation HTML.",
+  "content_scripts": [
+    {
+      "matches": ["*://notebooklm.google.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
