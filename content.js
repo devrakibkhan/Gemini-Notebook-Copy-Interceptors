@@ -51,14 +51,15 @@ function extractMathText(node) {
     return text;
 }
 
-function buildMathML(node) {
+function buildMathML(node, variant = '') {
     if (node.nodeType === Node.TEXT_NODE) {
         const t = node.textContent;
         if (!t.trim()) return '';
         const safeT = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        if (/^[0-9.]+$/.test(t)) return `<mn>${safeT}</mn>`;
-        if (/^[a-zA-Z]$/.test(t)) return `<mi>${safeT}</mi>`;
-        return `<mo>${safeT}</mo>`;
+        const variantAttr = variant ? ` mathvariant="${variant}"` : '';
+        if (/^[0-9.]+$/.test(t)) return `<mn${variantAttr}>${safeT}</mn>`;
+        if (/^[a-zA-Z]$/.test(t)) return `<mi${variantAttr}>${safeT}</mi>`;
+        return `<mo${variantAttr}>${safeT}</mo>`;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
@@ -72,8 +73,8 @@ function buildMathML(node) {
         if (fracLine && fracLine.parentElement) {
             const denomSpan = fracLine.parentElement.previousElementSibling;
             const numSpan = fracLine.parentElement.nextElementSibling;
-            const num = numSpan ? buildMathML(numSpan) : '';
-            const den = denomSpan ? buildMathML(denomSpan) : '';
+            const num = numSpan ? buildMathML(numSpan, variant) : '';
+            const den = denomSpan ? buildMathML(denomSpan, variant) : '';
             return `<mfrac><mrow>${num}</mrow><mrow>${den}</mrow></mfrac>`;
         }
     }
@@ -85,12 +86,12 @@ function buildMathML(node) {
         let nextChild = children[i+1];
         
         if (nextChild && nextChild.nodeType === Node.ELEMENT_NODE && nextChild.classList.contains('msupsub')) {
-            let baseMath = buildMathML(child);
-            let scriptMath = buildMathML(nextChild);
+            let baseMath = buildMathML(child, variant);
+            let scriptMath = buildMathML(nextChild, variant);
             inner += `<msup><mrow>${baseMath}</mrow><mrow>${scriptMath}</mrow></msup>`;
             i++; // skip the msupsub node
         } else {
-            inner += buildMathML(child);
+            inner += buildMathML(child, variant);
         }
     }
 
@@ -142,7 +143,67 @@ document.addEventListener('copy', function(event) {
 
     // Compute text/html with MathML
     container.querySelectorAll('.katex').forEach(node => {
-        const mathMLStr = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow>${buildMathML(node)}</mrow></math>`;
+        let isBold = false;
+        let isItalic = false;
+        let curr = node;
+        
+        while (curr && curr !== container) {
+            if (curr.nodeName === 'B' || curr.nodeName === 'STRONG' || 
+                (curr.style && (curr.style.fontWeight === 'bold' || parseInt(curr.style.fontWeight, 10) >= 600))) {
+                isBold = true;
+            }
+            if (curr.nodeName === 'I' || curr.nodeName === 'EM' || 
+                (curr.style && curr.style.fontStyle === 'italic')) {
+                isItalic = true;
+            }
+            curr = curr.parentNode;
+        }
+
+        // Find the top-level inline wrapper (e.g., spans) to check siblings
+        let topInline = node;
+        while (topInline.parentNode && topInline.parentNode !== container) {
+            if (topInline.parentNode.nodeName === 'SPAN') {
+                topInline = topInline.parentNode;
+            } else {
+                break;
+            }
+        }
+
+        // Check siblings if not found in ancestors
+        if (!isBold) {
+            let prev = topInline.previousElementSibling;
+            let next = topInline.nextElementSibling;
+            if ((prev && (prev.nodeName === 'B' || prev.nodeName === 'STRONG')) || 
+                (next && (next.nodeName === 'B' || next.nodeName === 'STRONG'))) {
+                isBold = true;
+            }
+        }
+        if (!isItalic) {
+            let prev = topInline.previousElementSibling;
+            let next = topInline.nextElementSibling;
+            if ((prev && (prev.nodeName === 'I' || prev.nodeName === 'EM')) || 
+                (next && (next.nodeName === 'I' || next.nodeName === 'EM'))) {
+                isItalic = true;
+            }
+        }
+
+        let mathvariant = '';
+        if (isBold && isItalic) {
+            mathvariant = 'bold-italic';
+        } else if (isBold) {
+            mathvariant = 'bold';
+        } else if (isItalic) {
+            mathvariant = 'italic';
+        }
+
+        let innerMath = buildMathML(node, mathvariant);
+        if (mathvariant) {
+            innerMath = `<mstyle mathvariant="${mathvariant}"><mrow>${innerMath}</mrow></mstyle>`;
+        } else {
+            innerMath = `<mrow>${innerMath}</mrow>`;
+        }
+
+        const mathMLStr = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline">${innerMath}</math>`;
         const wrapper = document.createElement('span');
         // Add non-breaking spaces around MathML. MS Word trims regular spaces 
         // at the boundaries of MathML blocks, causing words to merge.
