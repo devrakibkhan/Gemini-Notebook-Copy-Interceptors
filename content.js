@@ -91,23 +91,37 @@ document.addEventListener('copy', function(event) {
     if (!selection.rangeCount) return;
 
     const range = selection.getRangeAt(0);
+    const container = document.createElement('div');
+    container.appendChild(range.cloneContents());
 
-    // Compute text/plain
-    const plainContainer = document.createElement('div');
-    plainContainer.appendChild(range.cloneContents());
-    plainContainer.querySelectorAll('.katex').forEach(node => {
-        let mathText = extractMathText(node).replace(/\s+/g, ' ').trim();
-        const span = document.createElement('span');
-        span.textContent = ` ${mathText} `;
-        node.parentNode.replaceChild(span, node);
+    // Strip citations (they are span elements with aria-label)
+    container.querySelectorAll('span.notebooklm-processed[aria-label]').forEach(node => {
+        node.remove();
     });
-    let plainText = plainContainer.textContent;
-    if (!plainText.trim()) plainText = selection.toString();
+
+    // Compute plain text using the cleaned container
+    // We walk through elements to intercept .katex nodes
+    let plainText = '';
+    function walk(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            plainText += node.textContent;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            if (node.classList.contains('katex')) {
+                let mathText = extractMathText(node).replace(/\s+/g, ' ').trim();
+                plainText += ` ${mathText} `;
+            } else {
+                for (let child of node.childNodes) {
+                    walk(child);
+                }
+            }
+        }
+    }
+    for (let child of container.childNodes) {
+        walk(child);
+    }
 
     // Compute text/html with MathML
-    const htmlContainer = document.createElement('div');
-    htmlContainer.appendChild(range.cloneContents());
-    htmlContainer.querySelectorAll('.katex').forEach(node => {
+    container.querySelectorAll('.katex').forEach(node => {
         const mathMLStr = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline"><mrow>${buildMathML(node)}</mrow></math>`;
         const wrapper = document.createElement('span');
         // Add non-breaking spaces around MathML. MS Word trims regular spaces 
@@ -115,7 +129,7 @@ document.addEventListener('copy', function(event) {
         wrapper.innerHTML = `&nbsp;${mathMLStr}&nbsp;`;
         node.parentNode.replaceChild(wrapper, node);
     });
-    const htmlContent = htmlContainer.innerHTML;
+    const htmlContent = container.innerHTML;
 
     event.preventDefault();
     event.stopImmediatePropagation();
