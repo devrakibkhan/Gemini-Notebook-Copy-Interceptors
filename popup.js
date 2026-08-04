@@ -7,13 +7,27 @@ document.addEventListener('DOMContentLoaded', () => {
   // Default settings
   const defaultSettings = {
     enabled: true,
-    domains: ['notebooklm.google.com']
+    domains: ['notebooklm.google.com', 'notebook.google.com']
   };
 
   // Load current settings
   chrome.storage.sync.get(defaultSettings, (data) => {
     enableToggle.checked = data.enabled;
     renderDomains(data.domains);
+  });
+
+  // Pre-fill input with current tab's domain
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs && tabs[0] && tabs[0].url) {
+      try {
+        const url = new URL(tabs[0].url);
+        if (url.hostname) {
+          newDomainInput.value = url.hostname;
+        }
+      } catch (e) {
+        // Ignore invalid URLs
+      }
+    }
   });
 
   // Handle toggle change

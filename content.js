@@ -1,7 +1,7 @@
 let isEnabled = true;
-let activeDomains = ['notebooklm.google.com'];
+let activeDomains = ['notebooklm.google.com', 'notebook.google.com'];
 
-chrome.storage.sync.get({ enabled: true, domains: ['notebooklm.google.com'] }, (data) => {
+chrome.storage.sync.get({ enabled: true, domains: ['notebooklm.google.com', 'notebook.google.com'] }, (data) => {
     isEnabled = data.enabled;
     activeDomains = data.domains;
 });
