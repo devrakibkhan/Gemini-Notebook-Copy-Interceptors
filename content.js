@@ -54,17 +54,28 @@ function extractMathText(node) {
 function buildMathML(node, variant = '') {
     if (node.nodeType === Node.TEXT_NODE) {
         const t = node.textContent;
-        if (!t.trim()) return '';
+        if (!t.trim()) {
+            if (t.length > 0) return `<mtext>&nbsp;</mtext>`;
+            return '';
+        }
         const safeT = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const variantAttr = variant ? ` mathvariant="${variant}"` : '';
         if (/^[0-9.]+$/.test(t)) return `<mn${variantAttr}>${safeT}</mn>`;
         if (/^[a-zA-Z]$/.test(t)) return `<mi${variantAttr}>${safeT}</mi>`;
+        
+        if (t.trim().length > 1 || /[^\x00-\x7F]/.test(t)) {
+            return `<mtext${variantAttr}>${safeT}</mtext>`;
+        }
+        
         return `<mo${variantAttr}>${safeT}</mo>`;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
     const cl = node.classList;
-    if (cl.contains('strut') || cl.contains('pstrut') || cl.contains('frac-line') || cl.contains('mspace') || cl.contains('vlist-s') || cl.contains('hide-tail')) {
+    if (cl.contains('mspace')) {
+        return `<mtext>&nbsp;</mtext>`;
+    }
+    if (cl.contains('strut') || cl.contains('pstrut') || cl.contains('frac-line') || cl.contains('vlist-s') || cl.contains('hide-tail')) {
         return '';
     }
 
