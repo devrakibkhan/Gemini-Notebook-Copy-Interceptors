@@ -221,6 +221,22 @@ document.addEventListener('copy', function(event) {
         wrapper.innerHTML = `&nbsp;${mathMLStr}&nbsp;`;
         node.parentNode.replaceChild(wrapper, node);
     });
+
+    // Convert multiple consecutive spaces to non-breaking spaces
+    // so MS Word preserves the distinct visual gaps.
+    function preserveWhitespace(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            if (node.nodeValue) {
+                node.nodeValue = node.nodeValue.replace(/ {2,}/g, match => '\u00A0'.repeat(match.length));
+            }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            for (let child of node.childNodes) {
+                preserveWhitespace(child);
+            }
+        }
+    }
+    preserveWhitespace(container);
+
     const htmlContent = container.innerHTML;
 
     event.preventDefault();
