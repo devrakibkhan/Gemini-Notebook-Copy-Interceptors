@@ -109,9 +109,19 @@ function buildMathML(node, variant = '') {
     let result = inner;
     if (cl.contains('sqrt')) {
         result = `<msqrt><mrow>${inner}</mrow></msqrt>`;
-    } else if (cl.contains('mord') || cl.contains('mbin') || cl.contains('mrel') || cl.contains('mopen') || cl.contains('mclose') || cl.contains('mpunct') || cl.contains('minner') || cl.contains('base')) {
-        if (result.trim() !== '') {
-            result = `<mrow>${result}</mrow>`;
+    } else if (inner.trim() !== '') {
+        if (cl.contains('mbin')) {
+            // Binary operators like +, −: add space on both sides
+            result = `<mspace width="0.222em"/><mrow>${inner}</mrow><mspace width="0.222em"/>`;
+        } else if (cl.contains('mrel')) {
+            // Relation operators like =: add slightly wider space on both sides
+            result = `<mspace width="0.278em"/><mrow>${inner}</mrow><mspace width="0.278em"/>`;
+        } else if (cl.contains('mpunct')) {
+            // Punctuation like comma: small space after only
+            result = `<mrow>${inner}</mrow><mspace width="0.167em"/>`;
+        } else if (cl.contains('mord') || cl.contains('mopen') || cl.contains('mclose') || cl.contains('minner') || cl.contains('base')) {
+            // Ordinary terms, brackets: just protect order, no extra space
+            result = `<mrow>${inner}</mrow>`;
         }
     }
 

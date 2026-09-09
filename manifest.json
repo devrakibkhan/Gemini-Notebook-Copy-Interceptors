@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gemini Notebook Copy Interceptor",
-  "version": "1.4",
+  "version": "1.5",
   "description": "Intercepts copy on configured domains to preserve math equation HTML.",
   "permissions": [
     "storage",
