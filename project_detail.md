@@ -1,7 +1,7 @@
 # Project Detail: Gemini Notebook Copy Interceptor
 
 ## 1. What is our complete project?
-The project is a **Google Chrome Extension** named "Gemini Notebook Copy Interceptor" (Version 1.3, Manifest V3). It provides a background capability to fix clipboard text and HTML payloads during a copy action, specifically targeting mathematical equations that are otherwise lost or garbled when pasting into rich-text editors.
+The project is a **Google Chrome Extension** named "Gemini Notebook Copy Interceptor" (Version 1.4, Manifest V3). It provides a background capability to fix clipboard text and HTML payloads during a copy action, specifically targeting mathematical equations that are otherwise lost or garbled when pasting into rich-text editors.
 
 ## 2. What is it about?
 When users copy text containing KaTeX or similar web-based math rendering from sites like Google NotebookLM, the raw HTML copied to the clipboard is often incompatible with word processors like Microsoft Word. This extension intercepts the copy event, extracts the underlying math content, and converts it into standard **MathML**. This ensures equations paste flawlessly, preserving their structure and formatting (such as bold and italic styles).

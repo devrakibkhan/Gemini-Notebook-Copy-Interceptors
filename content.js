@@ -73,7 +73,7 @@ function buildMathML(node, variant = '') {
 
     const cl = node.classList;
     if (cl.contains('mspace')) {
-        return `<mtext>&nbsp;</mtext>`;
+        return '';
     }
     if (cl.contains('strut') || cl.contains('pstrut') || cl.contains('frac-line') || cl.contains('vlist-s') || cl.contains('hide-tail')) {
         return '';
@@ -106,11 +106,16 @@ function buildMathML(node, variant = '') {
         }
     }
 
+    let result = inner;
     if (cl.contains('sqrt')) {
-        return `<msqrt><mrow>${inner}</mrow></msqrt>`;
+        result = `<msqrt><mrow>${inner}</mrow></msqrt>`;
+    } else if (cl.contains('mord') || cl.contains('mbin') || cl.contains('mrel') || cl.contains('mopen') || cl.contains('mclose') || cl.contains('mpunct') || cl.contains('minner') || cl.contains('base')) {
+        if (result.trim() !== '') {
+            result = `<mrow>${result}</mrow>`;
+        }
     }
 
-    return inner;
+    return result;
 }
 
 document.addEventListener('copy', function(event) {
@@ -139,7 +144,14 @@ document.addEventListener('copy', function(event) {
             plainText += node.textContent;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
             if (node.classList.contains('katex')) {
-                let mathText = extractMathText(node).replace(/\s+/g, ' ').trim();
+                let mathText = '';
+                const annotationNode = node.querySelector('.katex-mathml annotation');
+                if (annotationNode && annotationNode.textContent) {
+                    mathText = annotationNode.textContent;
+                } else {
+                    const htmlNode = node.querySelector('.katex-html');
+                    mathText = extractMathText(htmlNode || node).replace(/\s+/g, ' ').trim();
+                }
                 plainText += ` ${mathText} `;
             } else {
                 for (let child of node.childNodes) {
@@ -207,14 +219,25 @@ document.addEventListener('copy', function(event) {
             mathvariant = 'italic';
         }
 
-        let innerMath = buildMathML(node, mathvariant);
-        if (mathvariant) {
-            innerMath = `<mstyle mathvariant="${mathvariant}"><mrow>${innerMath}</mrow></mstyle>`;
+        let mathMLStr = '';
+        const mathMLNode = node.querySelector('.katex-mathml math');
+        
+        if (mathMLNode) {
+            let innerMath = mathMLNode.innerHTML;
+            if (mathvariant) {
+                innerMath = `<mstyle mathvariant="${mathvariant}">${innerMath}</mstyle>`;
+            }
+            mathMLStr = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline">${innerMath}</math>`;
         } else {
-            innerMath = `<mrow>${innerMath}</mrow>`;
+            const htmlNode = node.querySelector('.katex-html');
+            let innerMath = buildMathML(htmlNode || node, mathvariant);
+            if (mathvariant) {
+                innerMath = `<mstyle mathvariant="${mathvariant}"><mrow>${innerMath}</mrow></mstyle>`;
+            } else {
+                innerMath = `<mrow>${innerMath}</mrow>`;
+            }
+            mathMLStr = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline">${innerMath}</math>`;
         }
-
-        const mathMLStr = `<math xmlns="http://www.w3.org/1998/Math/MathML" display="inline">${innerMath}</math>`;
         const wrapper = document.createElement('span');
         // Add non-breaking spaces around MathML. MS Word trims regular spaces 
         // at the boundaries of MathML blocks, causing words to merge.
