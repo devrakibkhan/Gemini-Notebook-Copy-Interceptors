@@ -1,14 +1,17 @@
 let isEnabled = true;
 let activeDomains = ['notebooklm.google.com', 'notebook.google.com'];
+let mathSpacing = true;
 
-chrome.storage.sync.get({ enabled: true, domains: ['notebooklm.google.com', 'notebook.google.com'] }, (data) => {
+chrome.storage.sync.get({ enabled: true, mathSpacing: true, domains: ['notebooklm.google.com', 'notebook.google.com'] }, (data) => {
     isEnabled = data.enabled;
+    mathSpacing = data.mathSpacing;
     activeDomains = data.domains;
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync') {
         if (changes.enabled) isEnabled = changes.enabled.newValue;
+        if (changes.mathSpacing !== undefined) mathSpacing = changes.mathSpacing.newValue;
         if (changes.domains) activeDomains = changes.domains.newValue;
     }
 });
@@ -111,14 +114,26 @@ function buildMathML(node, variant = '') {
         result = `<msqrt><mrow>${inner}</mrow></msqrt>`;
     } else if (inner.trim() !== '') {
         if (cl.contains('mbin')) {
-            // Binary operators like +, −: add space on both sides
-            result = `<mspace width="0.222em"/><mrow>${inner}</mrow><mspace width="0.222em"/>`;
+            // Binary operators like +, −
+            if (mathSpacing) {
+                result = `<mspace width="0.222em"/><mrow>${inner}</mrow><mspace width="0.222em"/>`;
+            } else {
+                result = `<mrow>${inner}</mrow>`;
+            }
         } else if (cl.contains('mrel')) {
-            // Relation operators like =: add slightly wider space on both sides
-            result = `<mspace width="0.278em"/><mrow>${inner}</mrow><mspace width="0.278em"/>`;
+            // Relation operators like =
+            if (mathSpacing) {
+                result = `<mspace width="0.278em"/><mrow>${inner}</mrow><mspace width="0.278em"/>`;
+            } else {
+                result = `<mrow>${inner}</mrow>`;
+            }
         } else if (cl.contains('mpunct')) {
-            // Punctuation like comma: small space after only
-            result = `<mrow>${inner}</mrow><mspace width="0.167em"/>`;
+            // Punctuation like comma
+            if (mathSpacing) {
+                result = `<mrow>${inner}</mrow><mspace width="0.167em"/>`;
+            } else {
+                result = `<mrow>${inner}</mrow>`;
+            }
         } else if (cl.contains('mord') || cl.contains('mopen') || cl.contains('mclose') || cl.contains('minner') || cl.contains('base')) {
             // Ordinary terms, brackets: just protect order, no extra space
             result = `<mrow>${inner}</mrow>`;

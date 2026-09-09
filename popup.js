@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const enableToggle = document.getElementById('enableToggle');
+  const spacingToggle = document.getElementById('spacingToggle');
   const domainList = document.getElementById('domainList');
   const addDomainForm = document.getElementById('addDomainForm');
   const newDomainInput = document.getElementById('newDomainInput');
@@ -7,12 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Default settings
   const defaultSettings = {
     enabled: true,
+    mathSpacing: true,
     domains: ['notebooklm.google.com', 'notebook.google.com']
   };
 
   // Load current settings
   chrome.storage.sync.get(defaultSettings, (data) => {
     enableToggle.checked = data.enabled;
+    spacingToggle.checked = data.mathSpacing;
     renderDomains(data.domains);
   });
 
@@ -30,9 +33,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle toggle change
+  // Handle enable toggle change
   enableToggle.addEventListener('change', (e) => {
     chrome.storage.sync.set({ enabled: e.target.checked });
+  });
+
+  // Handle spacing toggle change
+  spacingToggle.addEventListener('change', (e) => {
+    chrome.storage.sync.set({ mathSpacing: e.target.checked });
   });
 
   // Handle add domain

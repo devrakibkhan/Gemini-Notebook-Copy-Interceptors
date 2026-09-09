@@ -47,6 +47,18 @@ body {
   font-weight: 500;
 }
 
+.label-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.label-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
 .divider {
   height: 1px;
   background-color: var(--border-color);
