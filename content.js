@@ -289,7 +289,7 @@ function buildMathML(node, variant = '') {
     let result = inner;
     if (cl.contains('sqrt')) {
         result = `<msqrt><mrow>${inner}</mrow></msqrt>`;
-    } else if (cl.contains('fbox') || cl.contains('cancel') || cl.contains('sout')) {
+    } else if (cl.contains('fbox') || cl.contains('cancel') || cl.contains('sout') || cl.contains('underline-line')) {
         // These are structural spans in KaTeX (usually empty or just borders).
         // We ignore them here to avoid generating empty MathML nodes (which show as dotted boxes in Word).
         // We will wrap their parent vlist instead.
@@ -328,12 +328,14 @@ function buildMathML(node, variant = '') {
         let hasFboxDirect = false;
         let hasCancelDirect = false;
         let hasSoutDirect = false;
+        let hasUnderlineDirect = false;
 
         Array.from(node.children).forEach(child => {
             // Check for structural indicators within this specific vlist item
             if (child.querySelector(':scope > .fbox, :scope > * > .fbox')) hasFboxDirect = true;
             if (child.querySelector(':scope > .cancel, :scope > .cancel-lap, :scope > .cancel-pad, :scope > * > .cancel')) hasCancelDirect = true;
             if (child.querySelector(':scope > .sout, :scope > * > .sout')) hasSoutDirect = true;
+            if (child.querySelector(':scope > .underline-line, :scope > * > .underline-line') || child.classList.contains('underline-line')) hasUnderlineDirect = true;
             
             let math = buildMathML(child, childVariant);
             if (math && math.trim() !== '') {
@@ -363,6 +365,9 @@ function buildMathML(node, variant = '') {
         }
         if (hasSoutDirect) {
             result = `<menclose notation="horizontalstrike"><mrow>${result}</mrow></menclose>`;
+        }
+        if (hasUnderlineDirect) {
+            result = `<menclose notation="bottom"><mrow>${result}</mrow></menclose>`;
         }
     }
 
@@ -474,6 +479,7 @@ document.addEventListener('copy', function(event) {
 
         let isStrike = false;
         let isFbox = false;
+        let isUnderline = false;
         let style = '';
 
         if (cl.contains('textbf')) style += 'font-weight: bold; ';
@@ -489,6 +495,22 @@ document.addEventListener('copy', function(event) {
                 Array.from(node.querySelectorAll('.cancel, .cancel-lap, .cancel-pad, .sout')).length > 0;
             if (hasCancelOrSout) {
                 isStrike = true;
+            }
+        }
+        if (cl.contains('katex-underline') || cl.contains('underline')) {
+            isUnderline = true;
+        } else if (cl.contains('vlist') && Array.from(node.querySelectorAll('.underline-line')).length > 0) {
+            let hasUnderlineAncestor = false;
+            let p = node.parentElement;
+            while (p && p.classList) {
+                if (p.classList.contains('katex-underline') || p.classList.contains('underline')) {
+                    hasUnderlineAncestor = true;
+                    break;
+                }
+                p = p.parentElement;
+            }
+            if (!hasUnderlineAncestor) {
+                isUnderline = true;
             }
         }
         
@@ -514,6 +536,10 @@ document.addEventListener('copy', function(event) {
         // Apply <s> tag for strikethrough — more reliable than CSS in Word
         if (isStrike && result.trim() !== '') {
             result = `<s>${result}</s>`;
+        }
+        // Apply <u> tag for underline
+        if (isUnderline && result.trim() !== '') {
+            result = `<u>${result}</u>`;
         }
         // Apply border box — use inline style on a span
         if (isFbox && result.trim() !== '') {
