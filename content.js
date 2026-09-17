@@ -156,8 +156,8 @@ document.addEventListener('copy', function(event) {
     const container = document.createElement('div');
     container.appendChild(range.cloneContents());
 
-    // Strip citations (they are span elements with aria-label)
-    container.querySelectorAll('span.notebooklm-processed[aria-label]').forEach(node => {
+    // Strip citations (they can be span elements or button.citation-marker)
+    container.querySelectorAll('span.notebooklm-processed[aria-label], button.citation-marker, mat-icon').forEach(node => {
         node.remove();
     });
 
