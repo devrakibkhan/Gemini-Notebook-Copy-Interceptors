@@ -1,37 +1,40 @@
 # Project Detail: Gemini Notebook Copy Interceptor
 
-## 1. What is our complete project?
-The project is a **Google Chrome Extension** named "Gemini Notebook Copy Interceptor" (Version 1.5, Manifest V3). It provides a background capability to fix clipboard text and HTML payloads during a copy action, specifically targeting mathematical equations that are otherwise lost or garbled when pasting into rich-text editors.
+## 1. Project Overview
+**Name:** Gemini Notebook Copy Interceptor
+**Platform:** Google Chrome Extension (Manifest V3)
+**Primary Goal:** To seamlessly intercept copy events in the browser and restructure copied text and HTML payloads. Its main focus is accurately translating web-based mathematical equations (rendered by KaTeX) into **MathML** for flawless pasting into rich-text editors like Microsoft Word.
 
-## 2. What is it about?
-When users copy text containing KaTeX or similar web-based math rendering from sites like Google NotebookLM, the raw HTML copied to the clipboard is often incompatible with word processors like Microsoft Word. This extension intercepts the copy event, extracts the underlying math content, and converts it into standard **MathML**. This ensures equations paste flawlessly, preserving their structure and formatting (such as bold and italic styles).
+## 2. The Core Problem
+When users copy content containing mathematical formulas from Google NotebookLM (which uses KaTeX), the resulting HTML clipboard payload consists of complex DOM elements (like `<span>` with absolute positioning and custom CSS classes). 
+Word processors like **Microsoft Word do not support KaTeX HTML**. When a user pastes this data, the equations break, resulting in unreadable, garbled, or merged text. MS Word requires native **MathML** tags to render equations properly.
 
-## 3. How does it work?
-The extension consists of two main parts:
+## 3. How This Extension Solves the Problem
+This extension operates seamlessly in the background to fix this:
+1. **Intercepts the Copy Event:** It attaches an event listener to the `copy` action on configured domains.
+2. **DOM Cloning & Cleaning:** It clones the user's highlighted text and removes unwanted elements, such as invisible citation markers injected by NotebookLM.
+3. **Smart Translation (KaTeX to MathML):** It scans the copied content for `.katex` elements and intelligently parses the KaTeX CSS classes into native MathML tags. 
+   - *Example:* `.textbf` becomes `<mstyle mathvariant="bold">`.
+   - *Example:* `\color{blue}` (`style="color: blue;"`) becomes `<mstyle mathcolor="blue">`.
+   - *Example:* `\boxed{}` (`.fbox`) becomes `<menclose notation="box">`.
+4. **Clipboard Injection:** It replaces the default `text/html` and `text/plain` clipboard data with the newly generated MathML and raw LaTeX strings, tricking MS Word into rendering perfect, native equations.
 
-### A. The Content Script (`content.js`)
-- **Copy Interception**: It injects an event listener for the `copy` event across all web pages.
-- **Domain Filtering**: It checks if the current URL matches the user's active domain list (defaults: `notebooklm.google.com` and `notebook.google.com`). If not, it does nothing.
-- **DOM Cloning & Parsing**: If active, it clones the user's highlighted selection range and removes injected citations (`.notebooklm-processed`).
-- **MathML Conversion**: It scans the cloned DOM for elements with the `.katex` class. It converts structures like fractions (`mfrac`), square roots (`sqrt`), and superscripts/subscripts (`msupsub`). It also detects bold (`<b>`, `<strong>`) or italic (`<i>`, `<em>`) formatting based on CSS properties and elements.
-- **Clipboard Replacement**: It translates the math into valid MathML strings (e.g., `<math><mstyle mathvariant="bold">...</mstyle></math>`), wrapped with non-breaking spaces to avoid Word text-merging issues. It updates the `text/html` and `text/plain` formats, and replaces the system clipboard data, overriding the browser's default copy behavior.
+## 4. Architecture and File Structure
+The project is built entirely with Vanilla JavaScript, HTML, and CSS. No heavy frameworks are used.
 
-### B. The User Interface (`popup.html`, `popup.js`, `popup.css`)
-- **Settings Popup**: Accessible by clicking the extension icon in the Chrome toolbar.
-- **Global Toggle**: Allows users to enable or disable the interceptor entirely.
-- **Domain Management**: Users can dynamically add or remove domains where the interceptor should run. The current domain is automatically filled into the input field for quick adding. These preferences are saved using the `chrome.storage.sync` API, synchronizing across the user's Chrome browsers.
+### Core Components
+- **`manifest.json`**: The Chrome Extension Manifest (V3) defining permissions (`clipboardWrite`, `storage`, `activeTab`, `scripting`) and registering the content script.
+- **`content.js`**: The brains of the extension. 
+  - Contains the `copy` event listener.
+  - Contains the `buildMathML()` recursive function, which maps specific KaTeX classes (`.textbf`, `.fbox`, `.mfrac`, `.sqrt`, `.cancel`, etc.) to MathML tags (`<mstyle>`, `<menclose>`, `<mfrac>`, `<msqrt>`).
+  - Contains logic to extract the raw LaTeX code from `data-math` attributes to generate a perfect `text/plain` payload.
+- **`popup.html` / `popup.css` / `popup.js`**: The user interface for the extension. 
+  - Allows users to globally toggle the extension on/off.
+  - Allows users to add or remove domains where the interceptor should be active (defaults to `notebooklm.google.com`).
+  - Uses `chrome.storage.sync` to save user preferences across devices.
 
-## 4. How was it created?
-The project is built using standard web technologies without heavy frameworks:
-- **Core logic**: Vanilla JavaScript for DOM manipulation, recursive walking of math nodes, and event interception.
-- **UI**: Standard HTML5 and Vanilla CSS with custom switch toggles and SVG icons.
-- **Chrome APIs**: Uses Manifest V3 configurations (`manifest.json`) and the `chrome.storage` API for persisting settings.
-
-## 5. File Structure
-- `manifest.json`: Configuration, permissions, and metadata for Chrome.
-- `content.js`: The core logic that intercepts the copy event and builds MathML.
-- `popup.html` / `popup.css`: Structure and styling for the settings interface.
-- `popup.js`: Logic for toggling features and saving domain lists to Chrome storage.
-- `README.md`: Setup and installation instructions.
-- `icons/` (icon16.png, icon48.png, icon128.png): Various sizes for the extension UI.
-- `generate_icons.ps1`: A script to generate the necessary icons.
+## 5. Key AI Context (For AI Assistants)
+**If you are an AI assistant reading this file to understand the codebase, note the following:**
+- The primary logic for parsing KaTeX to MathML lives entirely in `content.js` inside the `buildMathML` function.
+- If the user requests adding support for a new LaTeX command (e.g., matrices or integrals), you must inspect how KaTeX renders that command in HTML, and then map those specific KaTeX CSS classes to their corresponding MathML equivalents inside `buildMathML`.
+- The `plainText` extraction logic prioritizes the `data-math` attribute because Gemini Notebook stores the raw LaTeX source string there.
