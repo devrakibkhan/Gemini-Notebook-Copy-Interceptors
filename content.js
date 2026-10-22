@@ -456,37 +456,60 @@ document.addEventListener('copy', function(event) {
             }
         }
 
-        // 1. Handle code blocks FIRST: <code-block-element-view> and <pre> → styled <div>
-        // Replacing code blocks first ensures their inner <code> tags are not
-        // accidentally treated as inline code in the next step.
-        container.querySelectorAll('code-block-element-view').forEach(blockEl => {
-            const codeContent = blockEl.querySelector('code');
-            const textContent = codeContent ? codeContent.textContent : blockEl.textContent;
+        // Helper: Convert code text into Word-compatible HTML with preserved indentation and line breaks
+        function formatCodeForWord(text) {
+            if (!text) return '';
+            let cleanText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            if (cleanText.endsWith('\n')) {
+                cleanText = cleanText.slice(0, -1);
+            }
+            const lines = cleanText.split('\n');
+            return lines.map(line => {
+                if (!line.length) return '&nbsp;';
+                let escaped = line
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+                escaped = escaped.replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;');
+                escaped = escaped.replace(/^ +/g, match => '&nbsp;'.repeat(match.length));
+                escaped = escaped.replace(/ {2,}/g, match => '&nbsp;'.repeat(match.length));
+                return escaped;
+            }).join('<br>');
+        }
 
+        function createStyledCodeBlock(textContent, styles) {
             const styledDiv = document.createElement('div');
             styledDiv.style.cssText = [
-                `font-family: ${codeStyles.fontFamily}`,
+                `font-family: ${styles.fontFamily}`,
                 'mso-ascii-font-family: "Lucida Console"',
                 'mso-hansi-font-family: "Lucida Console"',
                 'mso-bidi-font-family: "Lucida Console"',
                 'font-size: 10.0pt',
                 'mso-bidi-font-size: 10.0pt',
-                `background-color: ${codeStyles.backgroundColor}`,
-                `color: ${codeStyles.color}`,
+                `background-color: ${styles.backgroundColor}`,
+                `color: ${styles.color}`,
                 'padding: 12px 16px',
                 'border: 1px solid #d0d7de',
                 'border-radius: 6px',
-                'white-space: pre-wrap',
                 'margin: 8px 0',
-                'line-height: 1.5'
+                'line-height: 1.4'
             ].join('; ') + ';';
 
             const font = document.createElement('font');
             font.setAttribute('face', 'Lucida Console');
             font.setAttribute('size', '2');
-            font.textContent = textContent;
+            font.innerHTML = formatCodeForWord(textContent);
             styledDiv.appendChild(font);
+            return styledDiv;
+        }
 
+        // 1. Handle code blocks FIRST: <code-block-element-view>, <pre>, and multiline <code>
+        // Replacing code blocks first ensures their inner <code> tags are not
+        // accidentally treated as inline code in the next step.
+        container.querySelectorAll('code-block-element-view').forEach(blockEl => {
+            const codeContent = blockEl.querySelector('code');
+            const textContent = codeContent ? codeContent.textContent : blockEl.textContent;
+            const styledDiv = createStyledCodeBlock(textContent, codeStyles);
             blockEl.parentNode.replaceChild(styledDiv, blockEl);
         });
 
@@ -494,35 +517,19 @@ document.addEventListener('copy', function(event) {
         container.querySelectorAll('pre').forEach(preEl => {
             const codeEl = preEl.querySelector('code');
             const textContent = codeEl ? codeEl.textContent : preEl.textContent;
-
-            const styledDiv = document.createElement('div');
-            styledDiv.style.cssText = [
-                `font-family: ${codeStyles.fontFamily}`,
-                'mso-ascii-font-family: "Lucida Console"',
-                'mso-hansi-font-family: "Lucida Console"',
-                'mso-bidi-font-family: "Lucida Console"',
-                'font-size: 10.0pt',
-                'mso-bidi-font-size: 10.0pt',
-                `background-color: ${codeStyles.backgroundColor}`,
-                `color: ${codeStyles.color}`,
-                'padding: 12px 16px',
-                'border: 1px solid #d0d7de',
-                'border-radius: 6px',
-                'white-space: pre-wrap',
-                'margin: 8px 0',
-                'line-height: 1.5'
-            ].join('; ') + ';';
-
-            const font = document.createElement('font');
-            font.setAttribute('face', 'Lucida Console');
-            font.setAttribute('size', '2');
-            font.textContent = textContent;
-            styledDiv.appendChild(font);
-
+            const styledDiv = createStyledCodeBlock(textContent, codeStyles);
             preEl.parentNode.replaceChild(styledDiv, preEl);
         });
 
-        // 2. Handle inline code: <i class="code">, <code class="code">, <code> → styled <span>
+        // Handle bare multiline <code> blocks (e.g. Code 2 where <code> is copied without <pre>)
+        container.querySelectorAll('code').forEach(codeEl => {
+            if (codeEl.textContent && codeEl.textContent.includes('\n')) {
+                const styledDiv = createStyledCodeBlock(codeEl.textContent, codeStyles);
+                codeEl.parentNode.replaceChild(styledDiv, codeEl);
+            }
+        });
+
+        // 2. Handle inline code: <i class="code">, <code class="code">, single-line <code> → styled <span>
         // Gemini uses both <i class="code"> and <code class="code"> for inline code chips.
         container.querySelectorAll('i.code, code.code, code').forEach(codeEl => {
             const span = document.createElement('span');
@@ -654,17 +661,29 @@ document.addEventListener('copy', function(event) {
             }
             blockEl.remove();
         });
+
+        // Ensure bare multiline <code> elements are wrapped in <pre>
+        // so Word doesn't collapse their newlines into a single line
+        container.querySelectorAll('code').forEach(codeEl => {
+            if (codeEl.textContent && codeEl.textContent.includes('\n') && codeEl.parentElement && codeEl.parentElement.tagName !== 'PRE') {
+                const pre = document.createElement('pre');
+                codeEl.parentNode.insertBefore(pre, codeEl);
+                pre.appendChild(codeEl);
+            }
+        });
     }
     // ── End Code Style Preservation ──
 
     // Compute plain text using the cleaned container
-    // We walk through elements to intercept .katex nodes
+    // We walk through elements to intercept .katex nodes and preserve line breaks
     let plainText = '';
     function walk(node) {
         if (node.nodeType === Node.TEXT_NODE) {
             plainText += node.textContent;
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-            if (node.classList.contains('katex')) {
+            if (node.nodeName === 'BR') {
+                plainText += '\n';
+            } else if (node.classList.contains('katex')) {
                 let mathText = '';
                 const annotationNode = node.querySelector('.katex-mathml annotation');
                 if (annotationNode && annotationNode.textContent) {

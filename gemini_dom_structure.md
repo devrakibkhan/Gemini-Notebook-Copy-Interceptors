@@ -80,6 +80,9 @@ Gemini Notebook uses **two different tags** for inline code, both with `class="c
 
 ### 5. Code Blocks
 
+Gemini Notebook / Gemini Chat renders code blocks in a few variations:
+
+#### Variant A: `<code-block-element-view>` wrapper
 ```html
 <code-block-element-view _ngcontent-ng-c4194277229="" _nghost-ng-c1973222095="">
   <pre _ngcontent-ng-c1973222095="" dir="auto">
@@ -89,9 +92,32 @@ Gemini Notebook uses **two different tags** for inline code, both with `class="c
 </code-block-element-view>
 ```
 
+#### Variant B: Bare `<pre>` with `<code>`
+```html
+<pre _ngcontent-ng-c1973222095="" dir="auto">
+  <code _ngcontent-ng-c1973222095="">#include &lt;stdio.h&gt;
+...
+</code>
+</pre>
+```
+
+#### Variant C: Bare multiline `<code>`
+```html
+<code _ngcontent-ng-c1973222095="">#include &lt;stdio.h&gt;
+...
+</code>
+```
+
 - **Wrapper:** `<code-block-element-view>` (Angular custom element)
-- **Structure:** `<code-block-element-view>` → `<pre>` → `<code>`
-- **Note:** MS Word does not understand the `<code-block-element-view>` custom element. It must be unwrapped or replaced before clipboard injection.
+- **Structure:** `<code-block-element-view>` → `<pre>` → `<code>`, or `<pre>` → `<code>`, or bare multiline `<code>`
+- **MS Word Critical Requirement:** MS Word's clipboard HTML engine completely ignores the CSS `white-space: pre-wrap` property on `<div>` elements. Placing raw newline `\n` characters in a `<div>` causes MS Word to collapse all lines into a single continuous wrapped paragraph.
+- **Handling:**
+  - Code lines are split by `\n` and joined with `<br>` tags (`Shift+Enter` in Word), preserving the exact line breaks within a single shaded block.
+  - Leading spaces and 2+ consecutive spaces are converted to `&nbsp;`.
+  - Tabs (`\t`) are converted to 4 `&nbsp;`.
+  - Empty lines are set to `&nbsp;` so Word preserves blank lines.
+  - Monospace font `Lucida Console` (10.0pt), light gray background `#f0f4f9`, and a subtle border are applied.
+  - Multiline `<code>` elements without `<pre>` are recognized as code blocks and formatted accordingly, rather than treated as inline chips.
 
 ---
 
@@ -196,6 +222,6 @@ Gemini Notebook supports both light and dark themes.
 | Normal text (Bangla/English) | `Kohinoor Bangla` | `10.0pt` | Inherited via outer `div` and applied to `div.paragraph` |
 | Italic text | `BenSenHandwriting` | `10.0pt` | Replaced with `<span>` + `<font face="BenSenHandwriting"><i>` |
 | Inline code | `Lucida Console` | `10.0pt` | Replaced with `<span>` + `<font face="Lucida Console">` |
-| Code blocks | `Lucida Console` | `10.0pt` | Converted to styled `<div>` + `<font face="Lucida Console">` |
+| Code blocks | `Lucida Console` | `10.0pt` | Converted to styled `<div>` + `<font face="Lucida Console">` with `<br>` line breaks & `&nbsp;` indentation |
 | Table content | `Kohinoor Bangla` | `10.0pt` | Applied directly to `table`, `th`, `td`, and inner `table-paragraph` |
 
