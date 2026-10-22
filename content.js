@@ -394,6 +394,20 @@ function buildMathML(node, variant = '') {
     return result;
 }
 
+// Helper: Check if an rgb/rgba color string is "dark" (low perceived luminance).
+// Used to prevent copying dark-mode page styles into MS Word's white background.
+function isColorDark(colorStr) {
+    if (!colorStr) return false;
+    const match = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (!match) return false;
+    const r = parseInt(match[1]);
+    const g = parseInt(match[2]);
+    const b = parseInt(match[3]);
+    // Perceived luminance (ITU-R BT.601)
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance < 0.5;
+}
+
 document.addEventListener('copy', function(event) {
     if (!isEnabled) return;
     const currentDomain = window.location.hostname;
@@ -412,49 +426,39 @@ document.addEventListener('copy', function(event) {
         node.remove();
     });
 
-    // ── Inline Code Style Preservation ──
-    // Gemini Notebook renders inline code as <i class="code">.
-    // MS Word doesn't preserve the visual code-box style from CSS classes.
-    // When enabled, we replace each <i class="code"> with a <span> carrying
-    // inline CSS so Word faithfully renders the monospace/background styling.
+    // ── Code & Font Style Preservation ──
+    // When enabled:
+    // 1. Code blocks (<pre>, <code-block-element-view>) → styled <div> with 'Lucida Console'
+    // 2. Inline code (<i class="code">, <code class="code">, <code>) → styled <span> with 'Lucida Console'
+    // 3. Italic text (<i>, <em>) → styled <span> with 'BenSenHandwriting'
+    // 4. Default / normal text → inherited 'Kohinoor Bangla' from the container wrapper
+    // Word requires MSO font properties (mso-ascii-font-family, mso-bidi-font-family)
+    // for proper Complex Script (Bengali) font rendering.
     if (preserveCodeStyle) {
         // Try to capture computed styles from a live code element on the page
-        let liveCodeEl = document.querySelector('i.code');
+        let liveCodeEl = document.querySelector('i.code, code.code, pre code');
         let codeStyles = {
-            fontFamily: '"Google Sans Mono", "Courier New", Consolas, monospace',
+            fontFamily: '"Lucida Console", monospace',
             backgroundColor: '#f0f4f9',
             color: '#1b1b1b',
             padding: '1px 6px',
             borderRadius: '4px',
-            fontSize: '0.875em'
+            fontSize: '10.0pt'
         };
         if (liveCodeEl) {
             const cs = window.getComputedStyle(liveCodeEl);
-            codeStyles.fontFamily = cs.fontFamily || codeStyles.fontFamily;
-            codeStyles.backgroundColor = cs.backgroundColor || codeStyles.backgroundColor;
-            codeStyles.color = cs.color || codeStyles.color;
+            const bg = cs.backgroundColor;
+            // Only use computed colors if page is in light mode.
+            // Dark mode colors (e.g. dark bg, light text) are unreadable on Word's white page.
+            if (bg && !isColorDark(bg)) {
+                codeStyles.backgroundColor = bg;
+                codeStyles.color = cs.color || codeStyles.color;
+            }
         }
 
-        // Handle inline code: <i class="code"> → styled <span>
-        container.querySelectorAll('i.code').forEach(codeEl => {
-            const span = document.createElement('span');
-            span.style.cssText = [
-                `font-family: ${codeStyles.fontFamily}`,
-                `background-color: ${codeStyles.backgroundColor}`,
-                `color: ${codeStyles.color}`,
-                `padding: ${codeStyles.padding}`,
-                `border-radius: ${codeStyles.borderRadius}`,
-                `font-size: ${codeStyles.fontSize}`
-            ].join('; ') + ';';
-            span.textContent = codeEl.textContent;
-            codeEl.parentNode.replaceChild(span, codeEl);
-        });
-
-        // Handle code blocks: <code-block-element-view> → styled <div>
-        // Gemini Notebook renders code blocks as:
-        //   <code-block-element-view><pre><code>...</code></pre></code-block-element-view>
-        // MS Word doesn't understand custom elements, so we replace them with
-        // a Word-compatible styled <div> that preserves the code block appearance.
+        // 1. Handle code blocks FIRST: <code-block-element-view> and <pre> → styled <div>
+        // Replacing code blocks first ensures their inner <code> tags are not
+        // accidentally treated as inline code in the next step.
         container.querySelectorAll('code-block-element-view').forEach(blockEl => {
             const codeContent = blockEl.querySelector('code');
             const textContent = codeContent ? codeContent.textContent : blockEl.textContent;
@@ -462,6 +466,11 @@ document.addEventListener('copy', function(event) {
             const styledDiv = document.createElement('div');
             styledDiv.style.cssText = [
                 `font-family: ${codeStyles.fontFamily}`,
+                'mso-ascii-font-family: "Lucida Console"',
+                'mso-hansi-font-family: "Lucida Console"',
+                'mso-bidi-font-family: "Lucida Console"',
+                'font-size: 10.0pt',
+                'mso-bidi-font-size: 10.0pt',
                 `background-color: ${codeStyles.backgroundColor}`,
                 `color: ${codeStyles.color}`,
                 'padding: 12px 16px',
@@ -469,10 +478,15 @@ document.addEventListener('copy', function(event) {
                 'border-radius: 6px',
                 'white-space: pre-wrap',
                 'margin: 8px 0',
-                'font-size: 0.9em',
                 'line-height: 1.5'
             ].join('; ') + ';';
-            styledDiv.textContent = textContent;
+
+            const font = document.createElement('font');
+            font.setAttribute('face', 'Lucida Console');
+            font.setAttribute('size', '2');
+            font.textContent = textContent;
+            styledDiv.appendChild(font);
+
             blockEl.parentNode.replaceChild(styledDiv, blockEl);
         });
 
@@ -484,6 +498,11 @@ document.addEventListener('copy', function(event) {
             const styledDiv = document.createElement('div');
             styledDiv.style.cssText = [
                 `font-family: ${codeStyles.fontFamily}`,
+                'mso-ascii-font-family: "Lucida Console"',
+                'mso-hansi-font-family: "Lucida Console"',
+                'mso-bidi-font-family: "Lucida Console"',
+                'font-size: 10.0pt',
+                'mso-bidi-font-size: 10.0pt',
                 `background-color: ${codeStyles.backgroundColor}`,
                 `color: ${codeStyles.color}`,
                 'padding: 12px 16px',
@@ -491,11 +510,140 @@ document.addEventListener('copy', function(event) {
                 'border-radius: 6px',
                 'white-space: pre-wrap',
                 'margin: 8px 0',
-                'font-size: 0.9em',
                 'line-height: 1.5'
             ].join('; ') + ';';
-            styledDiv.textContent = textContent;
+
+            const font = document.createElement('font');
+            font.setAttribute('face', 'Lucida Console');
+            font.setAttribute('size', '2');
+            font.textContent = textContent;
+            styledDiv.appendChild(font);
+
             preEl.parentNode.replaceChild(styledDiv, preEl);
+        });
+
+        // 2. Handle inline code: <i class="code">, <code class="code">, <code> → styled <span>
+        // Gemini uses both <i class="code"> and <code class="code"> for inline code chips.
+        container.querySelectorAll('i.code, code.code, code').forEach(codeEl => {
+            const span = document.createElement('span');
+            span.style.cssText = [
+                `font-family: ${codeStyles.fontFamily}`,
+                'mso-ascii-font-family: "Lucida Console"',
+                'mso-hansi-font-family: "Lucida Console"',
+                'mso-bidi-font-family: "Lucida Console"',
+                'font-size: 10.0pt',
+                'mso-bidi-font-size: 10.0pt',
+                `background-color: ${codeStyles.backgroundColor}`,
+                `color: ${codeStyles.color}`,
+                `padding: ${codeStyles.padding}`,
+                `border-radius: ${codeStyles.borderRadius}`
+            ].join('; ') + ';';
+
+            const font = document.createElement('font');
+            font.setAttribute('face', 'Lucida Console');
+            font.setAttribute('size', '2');
+            font.textContent = codeEl.textContent;
+            span.appendChild(font);
+
+            codeEl.parentNode.replaceChild(span, codeEl);
+        });
+
+        // 3. Handle italic text: <i> (not code) and <em> → BenSenHandwriting
+        // Gemini renders italic text as plain <i> (without .code class).
+        // Since inline code (<i class="code">) was already replaced by <span> above,
+        // any remaining <i> elements are purely italic text.
+        // We replace with a styled <span> containing <font> and <i> so MS Word
+        // applies BenSenHandwriting to both English (ASCII) and Bengali (Complex Script).
+        container.querySelectorAll('i, em').forEach(el => {
+            const span = document.createElement('span');
+            span.style.cssText = [
+                "font-family: 'BenSenHandwriting', 'Bensen Handwriting', 'BenSen', cursive",
+                "font-style: italic",
+                "font-size: 10.0pt",
+                "mso-bidi-font-size: 10.0pt",
+                "mso-ascii-font-family: BenSenHandwriting",
+                "mso-hansi-font-family: BenSenHandwriting",
+                "mso-bidi-font-family: BenSenHandwriting"
+            ].join('; ') + ';';
+
+            const font = document.createElement('font');
+            font.setAttribute('face', 'BenSenHandwriting');
+            font.setAttribute('size', '2');
+
+            const italicTag = document.createElement('i');
+            while (el.firstChild) {
+                italicTag.appendChild(el.firstChild);
+            }
+            font.appendChild(italicTag);
+            span.appendChild(font);
+
+            el.parentNode.replaceChild(span, el);
+        });
+
+        // 4. Handle table formatting: <table>, <th>, <td>, and inner paragraphs → Kohinoor Bangla 10pt
+        // MS Word isolates table cells (<w:tc>) from outer <div> styles and applies
+        // default "Table Grid" style fonts unless explicitly styled on the cells and inner paragraphs.
+        // In Gemini Notebook, table cells contain <div class="paragraph table-paragraph normal">.
+        // Italic text and code chips already have their own explicit fonts inside cells.
+        // For all other table cell content, we set Kohinoor Bangla 10pt on table, th, td, and inner blocks,
+        // and wrap cell content in <font face="Kohinoor Bangla" size="2">.
+        container.querySelectorAll('table').forEach(tbl => {
+            tbl.style.fontFamily = "'Kohinoor Bangla', 'Kohinoor', sans-serif";
+            tbl.style.fontSize = "10.0pt";
+            tbl.style.msoAsciiFontFamily = "'Kohinoor Bangla'";
+            tbl.style.msoHansiFontFamily = "'Kohinoor Bangla'";
+            tbl.style.msoBidiFontFamily = "'Kohinoor Bangla'";
+            tbl.style.cssText += "; mso-bidi-font-size: 10.0pt;";
+        });
+
+        container.querySelectorAll('th, td').forEach(cell => {
+            cell.style.fontFamily = "'Kohinoor Bangla', 'Kohinoor', sans-serif";
+            cell.style.fontSize = "10.0pt";
+            cell.style.msoAsciiFontFamily = "'Kohinoor Bangla'";
+            cell.style.msoHansiFontFamily = "'Kohinoor Bangla'";
+            cell.style.msoBidiFontFamily = "'Kohinoor Bangla'";
+            cell.style.cssText += "; mso-bidi-font-size: 10.0pt;";
+
+            // Find direct block-level children (such as div.paragraph, div.table-paragraph, p)
+            const blockChildren = Array.from(cell.children).filter(child =>
+                child.nodeType === Node.ELEMENT_NODE &&
+                (['DIV', 'P'].includes(child.tagName) ||
+                 child.classList.contains('table-paragraph') ||
+                 child.classList.contains('paragraph'))
+            );
+
+            if (blockChildren.length > 0) {
+                blockChildren.forEach(block => {
+                    block.style.fontFamily = "'Kohinoor Bangla', 'Kohinoor', sans-serif";
+                    block.style.fontSize = "10.0pt";
+                    block.style.msoAsciiFontFamily = "'Kohinoor Bangla'";
+                    block.style.msoHansiFontFamily = "'Kohinoor Bangla'";
+                    block.style.msoBidiFontFamily = "'Kohinoor Bangla'";
+                    block.style.cssText += "; mso-bidi-font-size: 10.0pt;";
+
+                    const font = document.createElement('font');
+                    font.setAttribute('face', 'Kohinoor Bangla');
+                    font.setAttribute('size', '2');
+                    while (block.firstChild) {
+                        font.appendChild(block.firstChild);
+                    }
+                    block.appendChild(font);
+                });
+            } else {
+                const font = document.createElement('font');
+                font.setAttribute('face', 'Kohinoor Bangla');
+                font.setAttribute('size', '2');
+                while (cell.firstChild) {
+                    font.appendChild(cell.firstChild);
+                }
+                cell.appendChild(font);
+            }
+        });
+
+        // 5. Handle paragraphs and list items: ensure font-size 10pt across all text blocks
+        container.querySelectorAll('.paragraph:not(.table-paragraph), p, li').forEach(el => {
+            el.style.fontSize = '10.0pt';
+            el.style.cssText += '; mso-bidi-font-size: 10.0pt;';
         });
     } else {
         // Even when preserveCodeStyle is OFF, unwrap custom elements so
@@ -828,7 +976,12 @@ document.addEventListener('copy', function(event) {
     }
     preserveWhitespace(container);
 
-    const htmlContent = container.innerHTML;
+    // Wrap HTML with Kohinoor Bangla as the default font and 10pt size when preserveCodeStyle
+    // is ON. CSS inheritance and MSO font properties ensure all non-code,
+    // non-italic text inherits this font and size in MS Word for both Latin and Bengali script.
+    const htmlContent = preserveCodeStyle
+        ? `<div style="font-family: 'Kohinoor Bangla', 'Kohinoor', sans-serif; font-size: 10.0pt; mso-bidi-font-size: 10.0pt; mso-ascii-font-family: 'Kohinoor Bangla'; mso-hansi-font-family: 'Kohinoor Bangla'; mso-bidi-font-family: 'Kohinoor Bangla';">${container.innerHTML}</div>`
+        : container.innerHTML;
 
     event.preventDefault();
     event.stopImmediatePropagation();
