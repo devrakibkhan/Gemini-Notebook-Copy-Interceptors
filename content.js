@@ -435,6 +435,7 @@ document.addEventListener('copy', function(event) {
             codeStyles.color = cs.color || codeStyles.color;
         }
 
+        // Handle inline code: <i class="code"> → styled <span>
         container.querySelectorAll('i.code').forEach(codeEl => {
             const span = document.createElement('span');
             span.style.cssText = [
@@ -445,12 +446,68 @@ document.addEventListener('copy', function(event) {
                 `border-radius: ${codeStyles.borderRadius}`,
                 `font-size: ${codeStyles.fontSize}`
             ].join('; ') + ';';
-            // Preserve the text content
             span.textContent = codeEl.textContent;
             codeEl.parentNode.replaceChild(span, codeEl);
         });
+
+        // Handle code blocks: <code-block-element-view> → styled <div>
+        // Gemini Notebook renders code blocks as:
+        //   <code-block-element-view><pre><code>...</code></pre></code-block-element-view>
+        // MS Word doesn't understand custom elements, so we replace them with
+        // a Word-compatible styled <div> that preserves the code block appearance.
+        container.querySelectorAll('code-block-element-view').forEach(blockEl => {
+            const codeContent = blockEl.querySelector('code');
+            const textContent = codeContent ? codeContent.textContent : blockEl.textContent;
+
+            const styledDiv = document.createElement('div');
+            styledDiv.style.cssText = [
+                `font-family: ${codeStyles.fontFamily}`,
+                `background-color: ${codeStyles.backgroundColor}`,
+                `color: ${codeStyles.color}`,
+                'padding: 12px 16px',
+                'border: 1px solid #d0d7de',
+                'border-radius: 6px',
+                'white-space: pre-wrap',
+                'margin: 8px 0',
+                'font-size: 0.9em',
+                'line-height: 1.5'
+            ].join('; ') + ';';
+            styledDiv.textContent = textContent;
+            blockEl.parentNode.replaceChild(styledDiv, blockEl);
+        });
+
+        // Also handle bare <pre> blocks (without <code-block-element-view> wrapper)
+        container.querySelectorAll('pre').forEach(preEl => {
+            const codeEl = preEl.querySelector('code');
+            const textContent = codeEl ? codeEl.textContent : preEl.textContent;
+
+            const styledDiv = document.createElement('div');
+            styledDiv.style.cssText = [
+                `font-family: ${codeStyles.fontFamily}`,
+                `background-color: ${codeStyles.backgroundColor}`,
+                `color: ${codeStyles.color}`,
+                'padding: 12px 16px',
+                'border: 1px solid #d0d7de',
+                'border-radius: 6px',
+                'white-space: pre-wrap',
+                'margin: 8px 0',
+                'font-size: 0.9em',
+                'line-height: 1.5'
+            ].join('; ') + ';';
+            styledDiv.textContent = textContent;
+            preEl.parentNode.replaceChild(styledDiv, preEl);
+        });
+    } else {
+        // Even when preserveCodeStyle is OFF, unwrap custom elements so
+        // the content inside is not silently discarded by MS Word.
+        container.querySelectorAll('code-block-element-view').forEach(blockEl => {
+            while (blockEl.firstChild) {
+                blockEl.parentNode.insertBefore(blockEl.firstChild, blockEl);
+            }
+            blockEl.remove();
+        });
     }
-    // ── End Inline Code Style Preservation ──
+    // ── End Code Style Preservation ──
 
     // Compute plain text using the cleaned container
     // We walk through elements to intercept .katex nodes
