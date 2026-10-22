@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   const enableToggle = document.getElementById('enableToggle');
   const spacingToggle = document.getElementById('spacingToggle');
+  const codeStyleToggle = document.getElementById('codeStyleToggle');
   const domainList = document.getElementById('domainList');
   const addDomainForm = document.getElementById('addDomainForm');
   const newDomainInput = document.getElementById('newDomainInput');
@@ -9,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const defaultSettings = {
     enabled: true,
     mathSpacing: true,
+    preserveCodeStyle: false,
     domains: ['notebooklm.google.com', 'notebook.google.com']
   };
 
@@ -16,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get(defaultSettings, (data) => {
     enableToggle.checked = data.enabled;
     spacingToggle.checked = data.mathSpacing;
+    codeStyleToggle.checked = data.preserveCodeStyle;
     renderDomains(data.domains);
   });
 
@@ -41,6 +44,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle spacing toggle change
   spacingToggle.addEventListener('change', (e) => {
     chrome.storage.sync.set({ mathSpacing: e.target.checked });
+  });
+
+  // Handle code style toggle change
+  codeStyleToggle.addEventListener('change', (e) => {
+    chrome.storage.sync.set({ preserveCodeStyle: e.target.checked });
   });
 
   // Handle add domain

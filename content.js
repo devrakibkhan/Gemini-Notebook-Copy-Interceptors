@@ -1,10 +1,12 @@
 let isEnabled = true;
 let activeDomains = ['notebooklm.google.com', 'notebook.google.com'];
 let mathSpacing = true;
+let preserveCodeStyle = false;
 
-chrome.storage.sync.get({ enabled: true, mathSpacing: true, domains: ['notebooklm.google.com', 'notebook.google.com'] }, (data) => {
+chrome.storage.sync.get({ enabled: true, mathSpacing: true, preserveCodeStyle: false, domains: ['notebooklm.google.com', 'notebook.google.com'] }, (data) => {
     isEnabled = data.enabled;
     mathSpacing = data.mathSpacing;
+    preserveCodeStyle = data.preserveCodeStyle;
     activeDomains = data.domains;
 });
 
@@ -12,6 +14,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'sync') {
         if (changes.enabled) isEnabled = changes.enabled.newValue;
         if (changes.mathSpacing !== undefined) mathSpacing = changes.mathSpacing.newValue;
+        if (changes.preserveCodeStyle !== undefined) preserveCodeStyle = changes.preserveCodeStyle.newValue;
         if (changes.domains) activeDomains = changes.domains.newValue;
     }
 });
@@ -408,6 +411,46 @@ document.addEventListener('copy', function(event) {
     container.querySelectorAll('span.notebooklm-processed[aria-label], button.citation-marker, mat-icon').forEach(node => {
         node.remove();
     });
+
+    // ── Inline Code Style Preservation ──
+    // Gemini Notebook renders inline code as <i class="code">.
+    // MS Word doesn't preserve the visual code-box style from CSS classes.
+    // When enabled, we replace each <i class="code"> with a <span> carrying
+    // inline CSS so Word faithfully renders the monospace/background styling.
+    if (preserveCodeStyle) {
+        // Try to capture computed styles from a live code element on the page
+        let liveCodeEl = document.querySelector('i.code');
+        let codeStyles = {
+            fontFamily: '"Google Sans Mono", "Courier New", Consolas, monospace',
+            backgroundColor: '#f0f4f9',
+            color: '#1b1b1b',
+            padding: '1px 6px',
+            borderRadius: '4px',
+            fontSize: '0.875em'
+        };
+        if (liveCodeEl) {
+            const cs = window.getComputedStyle(liveCodeEl);
+            codeStyles.fontFamily = cs.fontFamily || codeStyles.fontFamily;
+            codeStyles.backgroundColor = cs.backgroundColor || codeStyles.backgroundColor;
+            codeStyles.color = cs.color || codeStyles.color;
+        }
+
+        container.querySelectorAll('i.code').forEach(codeEl => {
+            const span = document.createElement('span');
+            span.style.cssText = [
+                `font-family: ${codeStyles.fontFamily}`,
+                `background-color: ${codeStyles.backgroundColor}`,
+                `color: ${codeStyles.color}`,
+                `padding: ${codeStyles.padding}`,
+                `border-radius: ${codeStyles.borderRadius}`,
+                `font-size: ${codeStyles.fontSize}`
+            ].join('; ') + ';';
+            // Preserve the text content
+            span.textContent = codeEl.textContent;
+            codeEl.parentNode.replaceChild(span, codeEl);
+        });
+    }
+    // ── End Inline Code Style Preservation ──
 
     // Compute plain text using the cleaned container
     // We walk through elements to intercept .katex nodes
