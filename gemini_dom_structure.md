@@ -203,10 +203,10 @@ Gemini Notebook supports both light and dark themes.
 
 | Target | CSS Selector |
 |--------|-------------|
-| Inline code (both variants) | `.code` or `i.code, code.code` |
+| Inline code (single-line) | `.code` or `i.code, code.code, code` (without `\n`) |
 | Italic text (not code) | `i:not(.code), em` |
-| Code blocks | `code-block-element-view` |
-| Code block inner content | `code-block-element-view code` or `pre > code` |
+| Code blocks (all variants) | `code-block-element-view`, `pre`, or `code` (with `\n`) |
+| Code block inner content | `code-block-element-view code`, `pre > code`, or `code` |
 | KaTeX equations | `.katex` |
 | Citations to remove | `span.notebooklm-processed[aria-label], button.citation-marker, mat-icon` |
 | Paragraph containers | `div.paragraph` |
